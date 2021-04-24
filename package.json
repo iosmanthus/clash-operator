@@ -1,0 +1,22 @@
+{
+  "name": "clash-subscriber",
+  "version": "0.1.0",
+  "main": "index.js",
+  "author": "Iosmanthus Teng",
+  "license": "MIT",
+  "dependencies": {
+    "@types/js-yaml": "^3.12.5",
+    "@types/node": "^14.14.19",
+    "@types/tmp": "^0.2.0",
+    "@types/yargs": "^15.0.12",
+    "axios": "^0.21.1",
+    "js-yaml": "^4.0.0",
+    "tmp": "^0.2.1",
+    "tslog": "^3.1.2",
+    "typescript": "^4.1.3",
+    "yargs": "^16.2.0"
+  },
+  "devDependencies": {
+    "ts-node": "^9.1.1"
+  }
+}
