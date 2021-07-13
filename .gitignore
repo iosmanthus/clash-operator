@@ -1,4 +1,5 @@
 config.yaml
 config.yml
+/*.ts
 /node_modules
 /bin

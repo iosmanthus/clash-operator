@@ -1,13 +1,20 @@
+import * as yaml from "js-yaml";
+import { Logger } from "tslog";
 import fs from "fs";
 import yargs from "yargs";
-import * as yaml from "js-yaml";
-import tmp from "tmp";
-import { Logger } from "tslog";
+import { Interval } from "./committer";
 
+export class Subscription {
+  public type: string;
+  public url: string;
+  public data: Object | null = null;
+  constructor(type: string, url: string) {
+    this.type = type;
+    this.url = url;
+  }
+}
 
-import { Config } from "./config";
-import { Loader } from "./loader";
-import { Clash } from "./client";
+export type Subscriptions = Map<string, Subscription>;
 
 const argv = yargs(process.argv)
   .options({
@@ -19,77 +26,33 @@ const argv = yargs(process.argv)
     }
   }).argv;
 
-const log: Logger = new Logger({ name: "clash-operator" });
+const logger = new Logger({ name: 'main' })
 
-async function run(config: Config) {
-  const loader = new Loader(config.subscription);
+async function main() {
+  const config = yaml.load(fs.readFileSync(argv.config, 'utf8'));
 
-  const subscription = await loader.load()
-
-  if (config.script !== undefined) {
-    const tmpObj = tmp.fileSync({ postfix: '.ts' });
-    let needRecover = fs.existsSync(config["write-to"]);
-    let recover = null;
-
-    try {
-      fs.writeFileSync(tmpObj.name, config.script as string);
-      const { override } = await import(tmpObj.name);
-      let newConfig = override(subscription);
-      if (needRecover) {
-        recover = fs.readFileSync(config["write-to"]);
-      }
-      fs.writeFileSync(config["write-to"], yaml.dump(newConfig, { noRefs: true }));
-    } catch (error) {
-      tmpObj.removeCallback();
-      throw error;
-    }
-    tmpObj.removeCallback();
-    const client = new Clash({
-      controller: config.controller,
-      secret: config.secret
-    });
-
-    try {
-      await client.forceReload(config['read-from']);
-    } catch (error) {
-      // Restore old config
-      if (recover !== null) {
-        fs.writeFileSync(config["write-to"], recover);
-      }
-      const message = error.response?.data?.message;
-      if (message !== undefined) {
-        throw message;
-      }
-      throw error;
-    }
+  async function interval() {
+    const modifier = await import(config['modifier']['file']);
+    const committer = new Interval({
+      controller: config['controller'],
+      interval: config['period'],
+      readFrom: config['read-from'],
+      writeTo: config['write-to']
+    },
+      undefined,
+      undefined,
+      new modifier[config['modifier']['name']]());
+    committer.commit(new Map(Object.entries(config['subscriptions'])));
   }
 
-  log.info("Synced finished");
-}
-
-function main(): NodeJS.Timeout | undefined {
-  const config = new Config(argv.config);
-  const task = () => {
-    run(config).catch(err => log.error(err.toString()));
-  };
-  task();
-  const timeout = setInterval(task, config.interval);
-  return config["watch-file"] ? timeout : undefined;
-}
-
-try {
-  let timeout = main();
-  if (timeout !== undefined) {
-    fs.watchFile(argv.config, () => {
-      if (timeout !== undefined) {
-        log.info("Change of config file detected, rebuilding config template.");
-        clearTimeout(timeout);
-        timeout = main();
-      } else {
-        fs.unwatchFile(argv.config);
-      }
-    });
+  switch (config['mode']) {
+    case "interval":
+      interval().then(() => { })
+      break;
+    default:
+      break;
   }
-} catch (err) {
-  log.error(err.toString());
 }
+
+
+main().then(() => { })

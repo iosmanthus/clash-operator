@@ -3,9 +3,9 @@ WORKDIR /usr/bin/clash-operator
 COPY package*.json ./
 COPY tsconfig.json ./
 RUN npm install \
-    && npm install ts-node -g
+    && npm install ts-node
 COPY src/ ./src
-RUN tsc
+COPY *.ts ./
+RUN npx tsc
 VOLUME [ "/etc/clash-operator", "/etc/clash"]
-CMD [ "ts-node", "./src/index.ts", "-c", "/etc/clash-operator/config.yaml" ]
-
+CMD [ "npx", "ts-node", "./src/index.ts", "-c", "/etc/clash-operator/config.yaml" ]
